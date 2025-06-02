@@ -1,4 +1,8 @@
 using booking_api.Context;
+using booking_api.Interfaces;
+using booking_api.Mapping;
+using booking_api.Seed;
+using booking_api.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,11 +14,32 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
 builder.Services.AddDbContextPool<BookingContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("BookingContext")));
+builder.Services.AddScoped<IWorkspacesService, WorkspacesService>();
+builder.Services.AddScoped<IBookingsService, BookingsService>();
+builder.Services.AddAutoMapper(typeof(MappingProfile));
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policyBuilder =>
+    {
+        policyBuilder.WithOrigins("http://localhost:4200");
+        policyBuilder.AllowAnyMethod();
+        policyBuilder.AllowAnyHeader();
+    });
+});
+
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<BookingContext>();
+    context.Database.Migrate();
+    DbSeeding.SeedData(context);
+}
+
 app.MapControllers();
-// Configure the HTTP request pipeline.
+app.UseCors();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
