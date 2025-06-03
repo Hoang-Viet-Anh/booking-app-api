@@ -15,6 +15,10 @@ public class Workspaces : ControllerBase
         _workspacesService = workspacesService;
     }
 
+    /// <summary>
+    /// Gets all workspaces
+    /// </summary>
+    /// <returns>Array of Workspace</returns>
     [HttpGet]
     public async Task<IActionResult> Get()
     {

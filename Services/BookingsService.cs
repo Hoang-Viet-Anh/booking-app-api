@@ -13,9 +13,9 @@ public class BookingsService : IBookingsService
     private readonly IMapper _mapper;
     private readonly ILogger<BookingsService> _logger;
 
-    private const int START_HOUR = 6;
-    private const int END_HOUR = 18;
-    private const int MIN_SESSION = 1;
+    private const int StartHourUtc = 6;
+    private const int EndHourUtc = 18;
+    private const int MinSessionLength = 1;
 
     public BookingsService(BookingContext context, IMapper mapper, ILogger<BookingsService> logger)
     {
@@ -102,8 +102,8 @@ public class BookingsService : IBookingsService
                 
                 for (var day = start.Date; day <= end.Date; day = day.AddDays(1))
                 {
-                    var workStart = day.AddHours(START_HOUR);
-                    var workEnd = day.AddHours(END_HOUR);
+                    var workStart = day.AddHours(StartHourUtc);
+                    var workEnd = day.AddHours(EndHourUtc);
 
                     var overlapStart = (start > workStart) ? start : workStart;
                     var overlapEnd = (end < workEnd) ? end : workEnd;
@@ -152,17 +152,17 @@ public class BookingsService : IBookingsService
         WorkspaceModel workspace,
         List<int> capacityList)
     {
-        var dayStart = date.Date.AddHours(START_HOUR);
-        var dayEnd = date.Date.AddHours(END_HOUR);
+        var dayStart = date.Date.AddHours(StartHourUtc);
+        var dayEnd = date.Date.AddHours(EndHourUtc);
 
         var availableTimeSlots = new HashSet<DateTime>();
 
         var maxRooms = capacityList.Sum(size =>
             workspace.Availability.Rooms.FirstOrDefault(r => r.Capacity == size)?.RoomsAmount ?? 0);
 
-        for (var slot = dayStart; slot < dayEnd; slot = slot.AddHours(MIN_SESSION))
+        for (var slot = dayStart; slot < dayEnd; slot = slot.AddHours(MinSessionLength))
         {
-            var slotEnd = slot.AddHours(MIN_SESSION);
+            var slotEnd = slot.AddHours(MinSessionLength);
             var occupiedRooms = 0;
 
             foreach (var booking in bookings)

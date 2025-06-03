@@ -1,21 +1,23 @@
 # Use the official .NET SDK image for building
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 
-# Set the working directory inside the container
-WORKDIR /app
+WORKDIR /src
 
-# Copy the project files and restore dependencies
-COPY *.csproj ./
+# Copy csproj and restore as distinct layers
+COPY *.csproj ./ 
 RUN dotnet restore
 
-# Copy the rest of the application and build
+# Copy everything else and build
 COPY . ./
-RUN dotnet publish -c Release -o out
+RUN dotnet publish -c Release -o /app/publish
 
-# Use the official runtime image to run the app
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+# Use the ASP.NET runtime image
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+
 WORKDIR /app
-COPY --from=build /app/out .
+COPY --from=build /app/publish .
 
-# Set the entry point for the container
-ENTRYPOINT ["dotnet", "YourAppName.dll"]
+# Expose the default port (optional, for Docker networking)
+EXPOSE 80
+
+ENTRYPOINT ["dotnet", "booking-api.dll"]

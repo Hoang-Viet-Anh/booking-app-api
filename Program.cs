@@ -1,3 +1,4 @@
+using System.Reflection;
 using booking_api.Context;
 using booking_api.Interfaces;
 using booking_api.Mapping;
@@ -7,23 +8,29 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    c.IncludeXmlComments(xmlPath);
+});
 builder.Services.AddControllers();
 builder.Services.AddDbContextPool<BookingContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("BookingContext")));
 builder.Services.AddScoped<IWorkspacesService, WorkspacesService>();
 builder.Services.AddScoped<IBookingsService, BookingsService>();
 builder.Services.AddAutoMapper(typeof(MappingProfile));
+
+var corsOrigin = builder.Configuration["CorsOrigin"];
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policyBuilder =>
     {
-        policyBuilder.WithOrigins("http://localhost:4200");
-        policyBuilder.AllowAnyMethod();
-        policyBuilder.AllowAnyHeader();
+        policyBuilder.WithOrigins(corsOrigin!)
+            .AllowAnyMethod()
+            .AllowAnyHeader();
     });
 });
 
