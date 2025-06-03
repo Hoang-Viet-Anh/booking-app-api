@@ -27,6 +27,3 @@ services:
     ports:
       - "5000:8080"
     restart: always
-
-volumes:
-  pgdata:
