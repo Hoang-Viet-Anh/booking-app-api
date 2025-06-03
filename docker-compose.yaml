@@ -23,7 +23,7 @@ services:
       postgresdb:
         condition: service_healthy
     environment:
-      ConnectionStrings__DefaultConnection: "Host=postgresdb;Port=5432;Database=mydatabase;Username=myuser;Password=mypassword"
+      ConnectionStrings__BookingContext: "Host=postgresdb;Port=5432;Database=mydatabase;Username=myuser;Password=mypassword"
     ports:
       - "5000:8080"
     restart: always
