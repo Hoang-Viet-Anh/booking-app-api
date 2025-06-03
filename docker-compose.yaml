@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  postgresdb:
+  booking-postgresdb:
     image: postgres:15
     environment:
       POSTGRES_USER: myuser
@@ -20,10 +20,10 @@ services:
   api:
     build: .
     depends_on:
-      postgresdb:
+      booking-postgresdb:
         condition: service_healthy
     environment:
-      ConnectionStrings__BookingContext: "Host=postgresdb;Port=5432;Database=mydatabase;Username=myuser;Password=mypassword"
+      ConnectionStrings__BookingContext: "Host=booking-postgresdb;Port=5432;Database=mydatabase;Username=myuser;Password=mypassword"
     ports:
       - "5000:8080"
     restart: always
