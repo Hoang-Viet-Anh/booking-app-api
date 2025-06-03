@@ -31,19 +31,9 @@ The application is configured using the `appsettings.json` file.
 
 ## Running the Booking API with Docker
 
-### 🛠️ Build the Docker Image
+### 🛠️ Build docker compose
 
 ```bash
-docker build -t booking-api .
+docker-compose up --build
 ```
----
-### ▶️ Run the Docker Container
-```bash
-docker run -d \
-  -e ASPNETCORE_ENVIRONMENT=Production \
-  -e CorsOrigin=https://your-frontend.com \
-  -e ConnectionStrings__BookingContext="Host=host;Database=db;Username=user;Password=pass" \
-  -p 5000:80 \
-  --name booking-api \
-  booking-api
-```
+
