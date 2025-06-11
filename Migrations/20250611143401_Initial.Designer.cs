@@ -13,8 +13,8 @@ using booking_api.Context;
 namespace booking_api.Migrations
 {
     [DbContext(typeof(BookingContext))]
-    [Migration("20250530130730_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20250611143401_Initial")]
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -30,6 +30,9 @@ namespace booking_api.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CoworkingId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Email")
@@ -49,9 +52,38 @@ namespace booking_api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CoworkingId");
+
                     b.HasIndex("WorkspaceId");
 
                     b.ToTable("Booking");
+                });
+
+            modelBuilder.Entity("booking_api.Models.CoworkingModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<List<string>>("ImageUrls")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Coworking");
                 });
 
             modelBuilder.Entity("booking_api.Models.WorkspaceModel", b =>
@@ -63,6 +95,10 @@ namespace booking_api.Migrations
                     b.Property<List<string>>("Amenities")
                         .IsRequired()
                         .HasColumnType("text[]");
+
+                    b.Property<string>("AreaType")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("Description")
                         .IsRequired()
@@ -86,7 +122,13 @@ namespace booking_api.Migrations
 
             modelBuilder.Entity("booking_api.Models.BookingModel", b =>
                 {
-                    b.HasOne("booking_api.Models.WorkspaceModel", "workspace")
+                    b.HasOne("booking_api.Models.CoworkingModel", "Coworking")
+                        .WithMany()
+                        .HasForeignKey("CoworkingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("booking_api.Models.WorkspaceModel", "Workspace")
                         .WithMany()
                         .HasForeignKey("WorkspaceId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -117,34 +159,44 @@ namespace booking_api.Migrations
                                 .HasForeignKey("BookingModelId");
                         });
 
+                    b.Navigation("Coworking");
+
                     b.Navigation("DateSlot")
                         .IsRequired();
 
-                    b.Navigation("workspace");
+                    b.Navigation("Workspace");
                 });
 
-            modelBuilder.Entity("booking_api.Models.WorkspaceModel", b =>
+            modelBuilder.Entity("booking_api.Models.CoworkingModel", b =>
                 {
-                    b.OwnsOne("booking_api.Models.Availability", "Availability", b1 =>
+                    b.OwnsMany("booking_api.Models.WorkspaceCapacity", "WorkspacesCapacity", b1 =>
                         {
-                            b1.Property<Guid>("WorkspaceModelId")
+                            b1.Property<Guid>("CoworkingModelId")
                                 .HasColumnType("uuid");
 
-                            b1.Property<string>("Type")
-                                .IsRequired()
-                                .HasColumnType("text");
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("integer");
 
-                            b1.HasKey("WorkspaceModelId");
+                            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
 
-                            b1.ToTable("Workspace");
+                            b1.Property<Guid>("WorkspaceId")
+                                .HasColumnType("uuid");
+
+                            b1.HasKey("CoworkingModelId", "Id");
+
+                            b1.ToTable("WorkspaceCapacity");
 
                             b1.WithOwner()
-                                .HasForeignKey("WorkspaceModelId");
+                                .HasForeignKey("CoworkingModelId");
 
-                            b1.OwnsMany("booking_api.Models.Room", "Rooms", b2 =>
+                            b1.OwnsMany("booking_api.Models.Availability", "Availability", b2 =>
                                 {
-                                    b2.Property<Guid>("AvailabilityWorkspaceModelId")
+                                    b2.Property<Guid>("WorkspaceCapacityCoworkingModelId")
                                         .HasColumnType("uuid");
+
+                                    b2.Property<int>("WorkspaceCapacityId")
+                                        .HasColumnType("integer");
 
                                     b2.Property<int>("Id")
                                         .ValueGeneratedOnAdd()
@@ -152,25 +204,24 @@ namespace booking_api.Migrations
 
                                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b2.Property<int>("Id"));
 
+                                    b2.Property<int>("Amounts")
+                                        .HasColumnType("integer");
+
                                     b2.Property<int>("Capacity")
                                         .HasColumnType("integer");
 
-                                    b2.Property<int>("RoomsAmount")
-                                        .HasColumnType("integer");
+                                    b2.HasKey("WorkspaceCapacityCoworkingModelId", "WorkspaceCapacityId", "Id");
 
-                                    b2.HasKey("AvailabilityWorkspaceModelId", "Id");
-
-                                    b2.ToTable("Room");
+                                    b2.ToTable("Availability");
 
                                     b2.WithOwner()
-                                        .HasForeignKey("AvailabilityWorkspaceModelId");
+                                        .HasForeignKey("WorkspaceCapacityCoworkingModelId", "WorkspaceCapacityId");
                                 });
 
-                            b1.Navigation("Rooms");
+                            b1.Navigation("Availability");
                         });
 
-                    b.Navigation("Availability")
-                        .IsRequired();
+                    b.Navigation("WorkspacesCapacity");
                 });
 #pragma warning restore 612, 618
         }

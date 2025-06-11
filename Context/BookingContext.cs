@@ -8,17 +8,20 @@ public class BookingContext(DbContextOptions<BookingContext> options) : DbContex
     public DbSet<BookingModel> Booking { get; set; }
     public DbSet<WorkspaceModel> Workspace { get; set; }
 
+    public DbSet<CoworkingModel> Coworking { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<WorkspaceModel>(entity =>
-        {
-            entity.OwnsOne(w => w.Availability, availability =>
-            {
-                availability.Property(a => a.Type);
-                availability.OwnsMany(a => a.Rooms);
-            });
-        });
+        modelBuilder.Entity<WorkspaceModel>();
 
-        modelBuilder.Entity<BookingModel>(entity => { entity.OwnsOne(b => b.DateSlot); });
+        modelBuilder.Entity<BookingModel>(entity => entity.OwnsOne(b => b.DateSlot));
+
+        modelBuilder.Entity<CoworkingModel>(entity =>
+            entity.OwnsMany(c => c.WorkspacesCapacity,
+                wc =>
+                {
+                    wc.WithOwner();
+                    wc.OwnsMany(w => w.Availability);
+                }));
     }
 }

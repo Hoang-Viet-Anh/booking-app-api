@@ -8,11 +8,26 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace booking_api.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class Initial : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.CreateTable(
+                name: "Coworking",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Title = table.Column<string>(type: "text", nullable: false),
+                    Description = table.Column<string>(type: "text", nullable: false),
+                    Location = table.Column<string>(type: "text", nullable: false),
+                    ImageUrls = table.Column<List<string>>(type: "text[]", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Coworking", x => x.Id);
+                });
+
             migrationBuilder.CreateTable(
                 name: "Workspace",
                 columns: table => new
@@ -22,12 +37,32 @@ namespace booking_api.Migrations
                     Description = table.Column<string>(type: "text", nullable: false),
                     ImageUrls = table.Column<List<string>>(type: "text[]", nullable: false),
                     Amenities = table.Column<List<string>>(type: "text[]", nullable: false),
-                    Availability_Type = table.Column<string>(type: "text", nullable: false),
+                    AreaType = table.Column<string>(type: "text", nullable: false),
                     MaxBookingDays = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Workspace", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "WorkspaceCapacity",
+                columns: table => new
+                {
+                    CoworkingModelId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    WorkspaceId = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WorkspaceCapacity", x => new { x.CoworkingModelId, x.Id });
+                    table.ForeignKey(
+                        name: "FK_WorkspaceCapacity_Coworking_CoworkingModelId",
+                        column: x => x.CoworkingModelId,
+                        principalTable: "Coworking",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -37,6 +72,7 @@ namespace booking_api.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
                     Email = table.Column<string>(type: "text", nullable: false),
+                    CoworkingId = table.Column<Guid>(type: "uuid", nullable: false),
                     WorkspaceId = table.Column<Guid>(type: "uuid", nullable: false),
                     DateSlot_StartDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     DateSlot_EndDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
@@ -48,6 +84,12 @@ namespace booking_api.Migrations
                 {
                     table.PrimaryKey("PK_Booking", x => x.Id);
                     table.ForeignKey(
+                        name: "FK_Booking_Coworking_CoworkingId",
+                        column: x => x.CoworkingId,
+                        principalTable: "Coworking",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
                         name: "FK_Booking_Workspace_WorkspaceId",
                         column: x => x.WorkspaceId,
                         principalTable: "Workspace",
@@ -56,25 +98,31 @@ namespace booking_api.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Room",
+                name: "Availability",
                 columns: table => new
                 {
-                    AvailabilityWorkspaceModelId = table.Column<Guid>(type: "uuid", nullable: false),
+                    WorkspaceCapacityCoworkingModelId = table.Column<Guid>(type: "uuid", nullable: false),
+                    WorkspaceCapacityId = table.Column<int>(type: "integer", nullable: false),
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    RoomsAmount = table.Column<int>(type: "integer", nullable: false),
+                    Amounts = table.Column<int>(type: "integer", nullable: false),
                     Capacity = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Room", x => new { x.AvailabilityWorkspaceModelId, x.Id });
+                    table.PrimaryKey("PK_Availability", x => new { x.WorkspaceCapacityCoworkingModelId, x.WorkspaceCapacityId, x.Id });
                     table.ForeignKey(
-                        name: "FK_Room_Workspace_AvailabilityWorkspaceModelId",
-                        column: x => x.AvailabilityWorkspaceModelId,
-                        principalTable: "Workspace",
-                        principalColumn: "Id",
+                        name: "FK_Availability_WorkspaceCapacity_WorkspaceCapacityCoworkingMo~",
+                        columns: x => new { x.WorkspaceCapacityCoworkingModelId, x.WorkspaceCapacityId },
+                        principalTable: "WorkspaceCapacity",
+                        principalColumns: new[] { "CoworkingModelId", "Id" },
                         onDelete: ReferentialAction.Cascade);
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Booking_CoworkingId",
+                table: "Booking",
+                column: "CoworkingId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Booking_WorkspaceId",
@@ -86,13 +134,19 @@ namespace booking_api.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
+                name: "Availability");
+
+            migrationBuilder.DropTable(
                 name: "Booking");
 
             migrationBuilder.DropTable(
-                name: "Room");
+                name: "WorkspaceCapacity");
 
             migrationBuilder.DropTable(
                 name: "Workspace");
+
+            migrationBuilder.DropTable(
+                name: "Coworking");
         }
     }
 }
