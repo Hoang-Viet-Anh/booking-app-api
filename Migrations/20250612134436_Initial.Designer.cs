@@ -13,7 +13,7 @@ using booking_api.Context;
 namespace booking_api.Migrations
 {
     [DbContext(typeof(BookingContext))]
-    [Migration("20250611143401_Initial")]
+    [Migration("20250612134436_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -97,6 +97,10 @@ namespace booking_api.Migrations
                         .HasColumnType("text[]");
 
                     b.Property<string>("AreaType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("AreaTypeEmoji")
                         .IsRequired()
                         .HasColumnType("text");
 

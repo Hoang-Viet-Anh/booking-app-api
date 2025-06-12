@@ -38,6 +38,7 @@ namespace booking_api.Migrations
                     ImageUrls = table.Column<List<string>>(type: "text[]", nullable: false),
                     Amenities = table.Column<List<string>>(type: "text[]", nullable: false),
                     AreaType = table.Column<string>(type: "text", nullable: false),
+                    AreaTypeEmoji = table.Column<string>(type: "text", nullable: false),
                     MaxBookingDays = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>

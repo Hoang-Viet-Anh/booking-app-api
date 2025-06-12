@@ -10,6 +10,7 @@ public class WorkspaceModel
     public required List<string> ImageUrls { get; set; }
     public required List<string> Amenities { get; set; }
     public required string AreaType { get; set; }
+    public required string AreaTypeEmoji { get; set; }
     public required int MaxBookingDays { get; set; }
 }
 
@@ -21,5 +22,6 @@ public class WorkspaceModelDto
     public required List<string> ImageUrls { get; set; }
     public required List<string> Amenities { get; set; }
     public required string AreaType { get; set; }
+    public required string AreaTypeEmoji { get; set; }
     public required int MaxBookingDays { get; set; }
 }

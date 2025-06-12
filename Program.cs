@@ -20,6 +20,7 @@ builder.Services.AddDbContextPool<BookingContext>(opt =>
     opt.UseNpgsql(builder.Configuration.GetConnectionString("BookingContext")));
 builder.Services.AddScoped<IWorkspacesService, WorkspacesService>();
 builder.Services.AddScoped<IBookingsService, BookingsService>();
+builder.Services.AddScoped<ICoworkingsService, CoworkingsService>();
 builder.Services.AddAutoMapper(typeof(MappingProfile));
 
 var corsOrigin = builder.Configuration["CorsOrigin"];

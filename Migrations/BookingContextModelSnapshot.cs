@@ -97,6 +97,10 @@ namespace booking_api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("AreaTypeEmoji")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("text");
