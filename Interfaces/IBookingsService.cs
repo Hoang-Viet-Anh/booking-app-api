@@ -12,10 +12,9 @@ public interface IBookingsService
 
     Task<List<BookingModelDto>?> EditBookingAsync(Guid id, BookingModelDto booking);
 
-    Task<List<DateTime>> GetAllBookingDatesAsync(Guid workspaceId, List<int> capacityList);
+    Task<List<DateTime>> GetAllBookingDatesAsync(AvailabilityPropertiesDto availabilityProperties);
 
-    Task<AvailableTimesDto?> GetAvailableTimeAsync(DateSlot dateSlot, Guid workspaceId,
-        List<int> capacityList);
+    Task<List<DateRange>> GetAvailableTimeAsync(AvailabilityPropertiesDto availabilityProperties);
 
     Task DeleteBookingByIdAsync(Guid id);
 }

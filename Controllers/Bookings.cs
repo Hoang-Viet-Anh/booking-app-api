@@ -93,11 +93,11 @@ public class Bookings : ControllerBase
     /// Get fully booked days that unavailable
     /// </summary>
     /// <returns>Array of DateTime</returns>
-    [HttpGet("booked-days")]
+    [HttpPost("booked-days")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetBookedDays([FromQuery] Guid workspaceId, [FromQuery] List<int> capacityList)
+    public async Task<IActionResult> GetBookedDays([FromBody] AvailabilityPropertiesDto availabilityProperties)
     {
-        var dates = await _bookingsService.GetAllBookingDatesAsync(workspaceId, capacityList);
+        var dates = await _bookingsService.GetAllBookingDatesAsync(availabilityProperties);
         return Ok(dates);
     }
 
@@ -107,10 +107,9 @@ public class Bookings : ControllerBase
     /// <returns>Object with startTimes and endTimes array of DateTime</returns>
     [HttpPost("available-hours")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAvailableHours([FromQuery] Guid workspaceId, [FromQuery] List<int> capacityList,
-        [FromBody] DateSlot dateSlot)
+    public async Task<IActionResult> GetAvailableHours([FromBody] AvailabilityPropertiesDto availabilityProperties)
     {
-        var times = await _bookingsService.GetAvailableTimeAsync(dateSlot, workspaceId, capacityList);
+        var times = await _bookingsService.GetAvailableTimeAsync(availabilityProperties);
         return Ok(times);
     }
 }

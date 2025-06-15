@@ -8,17 +8,42 @@ public class BookingContext(DbContextOptions<BookingContext> options) : DbContex
     public DbSet<BookingModel> Booking { get; set; }
     public DbSet<WorkspaceModel> Workspace { get; set; }
 
+    public DbSet<CoworkingModel> Coworking { get; set; }
+
+    public DbSet<BookingTimeSlotModel> BookingTimeSlot { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<WorkspaceModel>(entity =>
+        modelBuilder.Entity<BookingModel>(entity =>
         {
-            entity.OwnsOne(w => w.Availability, availability =>
-            {
-                availability.Property(a => a.Type);
-                availability.OwnsMany(a => a.Rooms);
-            });
+            entity
+                .HasOne(b => b.Coworking)
+                .WithMany()
+                .HasForeignKey(b => b.CoworkingId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity
+                .HasOne(b => b.Workspace)
+                .WithMany()
+                .HasForeignKey(b => b.WorkspaceId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity
+                .HasMany(b => b.TimeSlots)
+                .WithOne(ts => ts.Booking)
+                .HasForeignKey(ts => ts.BookingId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<BookingModel>(entity => { entity.OwnsOne(b => b.DateSlot); });
+        modelBuilder.Entity<CoworkingModel>(entity =>
+            entity.OwnsMany(c => c.WorkspacesCapacity,
+                wc =>
+                {
+                    wc.WithOwner();
+                    wc.OwnsMany(w => w.Availability);
+                }));
     }
 }

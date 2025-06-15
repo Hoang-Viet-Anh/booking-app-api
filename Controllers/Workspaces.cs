@@ -1,5 +1,4 @@
 using booking_api.Interfaces;
-using booking_api.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace booking_api.Controllers;

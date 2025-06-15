@@ -9,8 +9,8 @@ public class MappingProfile : Profile
     {
         CreateMap<WorkspaceModel, WorkspaceModelDto>().ReverseMap();
         CreateMap<BookingModel, BookingModelDto>().ReverseMap();
-        CreateMap<DateSlot, DateSlot>().ReverseMap();
         CreateMap<Availability, Availability>().ReverseMap();
-        CreateMap<Room, Room>().ReverseMap();
+        CreateMap<WorkspaceCapacity, WorkspaceCapacity>().ReverseMap();
+        CreateMap<CoworkingModel, CoworkingModelDto>().ReverseMap();
     }
 }
