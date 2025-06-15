@@ -2,7 +2,6 @@ using AutoMapper;
 using booking_api.Context;
 using booking_api.Interfaces;
 using booking_api.Models;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
 namespace booking_api.Services;
@@ -38,16 +37,16 @@ public class BookingsService : IBookingsService
 
     public async Task<List<BookingModelDto>?> AddBookingAsync(BookingModelDto bookingDto)
     {
-        var workspace = await _context.Workspace.FirstOrDefaultAsync(w => w.Id == bookingDto.WorkspaceId);
+        var isWorkspaceExist = await _context.Workspace.AnyAsync(w => w.Id == bookingDto.WorkspaceId);
         var coworking = await _context.Coworking.Include(c => c.WorkspacesCapacity)
             .FirstOrDefaultAsync(cow => cow.Id == bookingDto.CoworkingId);
 
-        if (workspace == null || coworking == null) return null;
+        if (!isWorkspaceExist || coworking == null) return null;
 
         var isBookingAvailable = await CheckIfBookingAvailable(bookingDto, coworking);
         if (!isBookingAvailable) return [];
 
-        var bookingList = await AddMultipleBooking(bookingDto, workspace, coworking);
+        var bookingList = await AddMultipleBooking(bookingDto);
 
         return bookingList;
     }
@@ -60,13 +59,13 @@ public class BookingsService : IBookingsService
             .FirstOrDefaultAsync(x => x.Id == id);
         if (existingBooking == null) return null;
 
-        var workspace = await _context.Workspace.FirstOrDefaultAsync(w => w.Id == bookingDto.WorkspaceId);
-        if (workspace == null) return null;
+        var isWorkspaceExist = await _context.Workspace.AnyAsync(w => w.Id == bookingDto.WorkspaceId);
+        if (!isWorkspaceExist) return null;
 
         var isBookingAvailable = await CheckIfBookingAvailable(bookingDto, existingBooking.Coworking);
         if (!isBookingAvailable) return [];
 
-        var bookingList = await AddMultipleBooking(bookingDto, workspace, existingBooking.Coworking);
+        var bookingList = await AddMultipleBooking(bookingDto);
         _context.Booking.Remove(existingBooking);
         await _context.SaveChangesAsync();
 
@@ -81,152 +80,211 @@ public class BookingsService : IBookingsService
         await _context.SaveChangesAsync();
     }
 
-    public async Task<List<DateTime>> GetAllBookingDatesAsync(Guid coworkingId, Guid workspaceId,
-        List<int> capacityList)
+    public async Task<List<DateTime>> GetAllBookingDatesAsync(AvailabilityPropertiesDto availabilityProperties)
     {
-        var coworking = await _context.Coworking.Include(c => c.WorkspacesCapacity)
-            .FirstOrDefaultAsync(coworking => coworking.Id == coworkingId);
-        if (coworking == null || capacityList.Count == 0) return [];
-
-        var fullyBookedDates = new HashSet<DateTime>();
-
-        foreach (var size in capacityList)
-        {
-            var maxRooms = coworking.WorkspacesCapacity.Find(wc => wc.WorkspaceId == workspaceId)?
-                .Availability.Find(r => r.Capacity == size)?.Amounts ?? 0;
-            if (maxRooms == 0) continue;
-
-            var bookings = await _context.Booking.Where(b =>
-                    b.WorkspaceId == workspaceId &&
-                    b.CoworkingId == coworkingId &&
-                    b.RoomSizes.Contains(size))
-                .ToListAsync();
-
-            var dailyHours = new Dictionary<DateTime, double>();
-
-            foreach (var booking in bookings)
+        var bookings = await _context.Booking
+            .Include(b => b.TimeSlots)
+            .Where(b =>
+                b.Id != availabilityProperties.BookingId &&
+                b.CoworkingId == availabilityProperties.CoworkingId &&
+                b.WorkspaceId == availabilityProperties.WorkSpaceId &&
+                b.AreaCapacity.Intersect(availabilityProperties.CapacityList).Any()
+            )
+            .Select(b => new
             {
-                var start = booking.DateSlot.StartDate.ToUniversalTime();
-                var end = booking.DateSlot.EndDate.ToUniversalTime();
+                b.StartDate,
+                b.EndDate,
+                b.AreaCapacity,
+                b.TimeSlots,
+                b.Coworking
+            }).ToListAsync();
 
-                for (var day = start.Date; day <= end.Date; day = day.AddDays(1))
+        var coworking = await _context.Coworking.FirstOrDefaultAsync(c => c.Id == availabilityProperties.CoworkingId);
+
+        if (coworking == null) return [];
+
+        var bookedDates = new HashSet<DateTime>();
+
+        foreach (var capacity in availabilityProperties.CapacityList)
+        {
+            var filteredBookings = bookings.Where(b => b.AreaCapacity.Contains(capacity)).ToList();
+            var maxAmount = coworking.WorkspacesCapacity
+                .Find(wc => wc.WorkspaceId == availabilityProperties.WorkSpaceId)?.Availability
+                .Find(a => a.Capacity == capacity)?.Amounts ?? 0;
+
+            var datesWithBookings = new HashSet<DateTime>();
+            datesWithBookings.Add(DateTime.UtcNow);
+
+            foreach (var booking in filteredBookings)
+            {
+                for (var day = booking.StartDate; day <= booking.EndDate; day = day.AddDays(MinSessionLength))
                 {
-                    var workStart = day.AddHours(StartHourUtc);
-                    var workEnd = day.AddHours(EndHourUtc);
-
-                    var overlapStart = (start > workStart) ? start : workStart;
-                    var overlapEnd = (end < workEnd) ? end : workEnd;
-
-                    if (overlapStart >= overlapEnd) continue;
-
-                    var hours = (overlapEnd - overlapStart).TotalHours;
-
-                    if (!dailyHours.TryAdd(day, hours))
-                    {
-                        dailyHours[day] += hours;
-                    }
+                    datesWithBookings.Add(day);
                 }
             }
 
-            foreach (var (day, totalHours) in dailyHours)
+            var timeSlots = filteredBookings
+                .SelectMany(fb => fb.TimeSlots)
+                .Select(fb => new DateRange()
+                {
+                    startDate = fb.StartTime,
+                    endDate = fb.EndTime,
+                }).ToList();
+
+            foreach (var date in datesWithBookings)
             {
-                if (totalHours >= 12 * maxRooms)
-                    fullyBookedDates.Add(day);
+                var availableTimeSlots = await GetDateTimeSlots(date, timeSlots, maxAmount);
+
+
+                if (availableTimeSlots.Count == 0)
+                {
+                    bookedDates.Add(date.Date);
+                }
             }
         }
 
-        return fullyBookedDates.OrderBy(d => d).ToList();
+        return bookedDates.ToList();
     }
 
-    public async Task<AvailableTimesDto?> GetAvailableTimeAsync(DateSlot dateSlot,
-        Guid workspaceId,
-        Guid coworkingId,
-        List<int> capacityList)
+    public async Task<List<DateRange>> GetAvailableTimeAsync(AvailabilityPropertiesDto availabilityProperties)
     {
+        var startDate = availabilityProperties.DateRange.startDate.Date;
+        var endDate = availabilityProperties.DateRange.endDate.Date;
+
+        var daysAmount = endDate.Subtract(startDate).Days + 1;
+
         var bookings = await _context.Booking
+            .Include(b => b.TimeSlots)
             .Where(b =>
-                b.WorkspaceId == workspaceId &&
-                b.CoworkingId == coworkingId &&
-                b.RoomSizes.Any(r => capacityList.Contains(r)))
-            .ToListAsync();
+                b.Id != availabilityProperties.BookingId &&
+                b.CoworkingId == availabilityProperties.CoworkingId &&
+                b.WorkspaceId == availabilityProperties.WorkSpaceId &&
+                b.AreaCapacity.Intersect(availabilityProperties.CapacityList).Any() &&
+                b.StartDate.Date <= endDate &&
+                b.EndDate.Date >= startDate
+            ).ToListAsync();
 
-        var workspace = await _context.Workspace.FirstOrDefaultAsync(w => w.Id == workspaceId);
-        var coworking = await _context.Coworking.Include(c => c.WorkspacesCapacity)
-            .FirstOrDefaultAsync(coworking => coworking.Id == coworkingId);
+        var coworking = await _context.Coworking.FirstOrDefaultAsync(c => c.Id == availabilityProperties.CoworkingId);
 
-        if (workspace == null || coworking == null) return null;
+        if (coworking == null) return [];
 
-        var timeSlots = new AvailableTimesDto
+        var allTimeSlots = new List<DateRange>();
+
+        foreach (var capacity in availabilityProperties.CapacityList)
         {
-            StartTimes =
-                GetAvailableTimeSlotsForDay(dateSlot.StartDate, coworking, workspaceId, bookings, capacityList),
-            EndTimes = GetAvailableTimeSlotsForDay(dateSlot.EndDate, coworking, workspaceId, bookings, capacityList)
-        };
-        return timeSlots;
-    }
+            var filteredBookings = bookings.Where(b => b.AreaCapacity.Contains(capacity)).ToList();
+            var maxAmount = coworking.WorkspacesCapacity
+                .Find(wc => wc.WorkspaceId == availabilityProperties.WorkSpaceId)?.Availability
+                .Find(a => a.Capacity == capacity)?.Amounts ?? 0;
 
-    private List<DateTime> GetAvailableTimeSlotsForDay(
-        DateTime date,
-        CoworkingModel coworking,
-        Guid workspaceId,
-        List<BookingModel> bookings,
-        List<int> capacityList)
-    {
-        var isToday = DateTime.UtcNow.Date == date.ToUniversalTime().Date;
-        var availableStartDate = isToday ? DateTime.UtcNow.Hour : StartHourUtc;
+            var timeSlots = filteredBookings
+                .SelectMany(fb => fb.TimeSlots)
+                .Select(fb => new DateRange()
+                {
+                    startDate = fb.StartTime,
+                    endDate = fb.EndTime,
+                }).ToList();
 
-        var dayStart = date.Date.AddHours(availableStartDate + 1);
-        var dayEnd = date.Date.AddHours(EndHourUtc);
-
-        var availableTimeSlots = new HashSet<DateTime>();
-
-        if (availableStartDate >= EndHourUtc - 1)
-        {
-            return availableTimeSlots.ToList();
+            for (var day = startDate; day <= endDate; day = day.AddDays(1))
+            {
+                var availableTimeSlots = await GetDateTimeSlots(day, timeSlots, maxAmount);
+                allTimeSlots.AddRange(availableTimeSlots);
+            }
         }
 
-        var maxRooms = capacityList.Sum(size =>
-            coworking.WorkspacesCapacity.Find(wc => wc.WorkspaceId == workspaceId)?.Availability
-                .FirstOrDefault(r => r.Capacity == size)?.Amounts ?? 0);
+        var commonTimeSlots = allTimeSlots
+            .GroupBy(slot => slot)
+            .Where(group => group.Count() == daysAmount * availabilityProperties.CapacityList.Count)
+            .Select(group => group.Key)
+            .ToList();
 
-        for (var slot = dayStart; slot < dayEnd; slot = slot.AddHours(MinSessionLength))
+
+        return commonTimeSlots;
+    }
+
+    private async Task<List<DateRange>> GetDateTimeSlots(DateTime date, List<DateRange> bookedTimeSlots, int maxAmount)
+    {
+        var isToday = DateTime.UtcNow.Date == date.Date;
+        var availableStartHour = isToday ? DateTime.UtcNow.Hour + 1 : StartHourUtc;
+
+        if (availableStartHour >= EndHourUtc)
         {
-            var slotEnd = slot.AddHours(MinSessionLength);
-            var occupiedRooms = 0;
+            return [];
+        }
 
-            foreach (var booking in bookings)
-            {
-                if (booking.DateSlot.EndDate <= slot || booking.DateSlot.StartDate >= slotEnd)
-                    continue;
+        var startDate = new DateTime(date.Year, date.Month, date.Day, availableStartHour, 0, 0);
+        var endDate = new DateTime(date.Year, date.Month, date.Day, EndHourUtc, 0, 0);
 
-                occupiedRooms += booking.RoomSizes.Count(rs => capacityList.Contains(rs));
-            }
+        var availableTimeSlots = new List<DateRange>();
 
-            if (occupiedRooms >= maxRooms)
+        for (var day = startDate; day < endDate; day = day.AddHours(MinSessionLength))
+        {
+            var startTime = day;
+            var endTime = day.AddHours(MinSessionLength);
+
+            var occupiedCount = bookedTimeSlots.Count(ts =>
+                ts.startDate < endTime &&
+                ts.endDate > startTime
+            );
+
+            if (occupiedCount >= maxAmount)
             {
                 continue;
             }
 
-            availableTimeSlots.Add(slot);
-            availableTimeSlots.Add(slotEnd);
+            availableTimeSlots.Add(new DateRange()
+            {
+                startDate = startTime,
+                endDate = endTime,
+            });
         }
 
-        return availableTimeSlots.ToList();
+        return availableTimeSlots;
     }
 
-
-    private async Task<List<BookingModelDto>?> AddMultipleBooking(BookingModelDto bookingDto, WorkspaceModel workspace,
-        CoworkingModel coworking)
+    private async Task<List<BookingModelDto>?> AddMultipleBooking(BookingModelDto bookingDto)
     {
         var bookingList = new List<BookingModelDto>();
 
-        foreach (var size in bookingDto.RoomSizes)
+        foreach (var size in bookingDto.AreaCapacity)
         {
             var booking = _mapper.Map<BookingModel>(bookingDto);
             booking.Id = Guid.NewGuid();
-            booking.Workspace = workspace;
-            booking.Coworking = coworking;
-            booking.RoomSizes = [size];
+            booking.StartDate = DateTime.SpecifyKind(bookingDto.StartDate, DateTimeKind.Utc);
+            booking.EndDate = DateTime.SpecifyKind(bookingDto.EndDate, DateTimeKind.Utc);
+            booking.AreaCapacity = [size];
+
+            var timeSlots = new List<BookingTimeSlotModel>();
+
+            for (var day = bookingDto.StartDate; day <= bookingDto.EndDate; day = day.AddDays(1))
+            {
+                var startTime = new DateTime(
+                    day.Year, day.Month, day.Day,
+                    booking.StartDate.Hour, booking.StartDate.Minute, booking.StartDate.Second
+                );
+                var endTime = new DateTime(
+                    day.Year, day.Month, day.Day,
+                    booking.EndDate.Hour, booking.EndDate.Minute, booking.EndDate.Second
+                );
+
+                startTime = DateTime.SpecifyKind(startTime, DateTimeKind.Utc);
+                endTime = DateTime.SpecifyKind(endTime, DateTimeKind.Utc);
+
+                _logger.LogError("startTime: " + startTime + " endTime: " + endTime);
+
+                timeSlots.Add(new BookingTimeSlotModel()
+                {
+                    Id = Guid.NewGuid(),
+                    BookingId = booking.Id,
+                    StartTime = startTime,
+                    EndTime = endTime,
+                });
+            }
+
+            timeSlots.ForEach(ts => _logger.LogError("timeSlotStart: " + ts.StartTime + " timeSlotEnd: " + ts.EndTime));
+
+            booking.TimeSlots = timeSlots;
+
             var entry = await _context.Booking.AddAsync(booking);
             bookingList.Add(_mapper.Map<BookingModelDto>(entry.Entity));
         }
@@ -238,23 +296,51 @@ public class BookingsService : IBookingsService
 
     private async Task<bool> CheckIfBookingAvailable(BookingModelDto bookingDto, CoworkingModel coworking)
     {
-        foreach (var size in bookingDto.RoomSizes)
-        {
-            var maxRooms = coworking.WorkspacesCapacity
-                .Find(w => w.WorkspaceId == bookingDto.WorkspaceId)?
-                .Availability.Find(r => r.Capacity == size)?.Amounts ?? 0;
-
-            var occupiedAmount = await _context.Booking.CountAsync(b =>
+        var bookings = await _context.Booking.Where(b =>
                 b.Id != bookingDto.Id &&
                 b.WorkspaceId == bookingDto.WorkspaceId &&
                 b.CoworkingId == bookingDto.CoworkingId &&
-                b.RoomSizes.Contains(size) &&
-                b.DateSlot.StartDate < bookingDto.DateSlot.EndDate &&
-                b.DateSlot.EndDate > bookingDto.DateSlot.StartDate);
-
-            if (occupiedAmount >= maxRooms)
+                b.AreaCapacity.Intersect(bookingDto.AreaCapacity).Any() &&
+                b.StartDate.Date <= bookingDto.EndDate.Date &&
+                b.EndDate.Date >= bookingDto.StartDate.Date)
+            .Include(b => b.TimeSlots)
+            .Select(b => new
             {
-                return false;
+                b.Id,
+                b.AreaCapacity,
+                b.TimeSlots
+            })
+            .ToListAsync();
+
+
+        foreach (var capacity in bookingDto.AreaCapacity)
+        {
+            var maxAmount = coworking.WorkspacesCapacity.Find(wc => wc.WorkspaceId == bookingDto.WorkspaceId)?
+                .Availability.Find(a => a.Capacity == capacity)?.Amounts ?? 0;
+
+            var filteredBookings = bookings
+                .Where(b => b.AreaCapacity.Contains(capacity))
+                .ToList();
+
+            for (var day = bookingDto.StartDate; day <= bookingDto.EndDate; day = day.AddDays(1))
+            {
+                var startTime = day;
+                var endTime = new DateTime(
+                    day.Year, day.Month, day.Day,
+                    bookingDto.EndDate.Hour, bookingDto.EndDate.Minute, bookingDto.EndDate.Second
+                );
+
+                var occupiedCount = filteredBookings
+                    .SelectMany(fb => fb.TimeSlots)
+                    .Count(ts =>
+                        ts.StartTime < endTime &&
+                        ts.EndTime > startTime
+                    );
+
+                if (occupiedCount >= maxAmount)
+                {
+                    return false;
+                }
             }
         }
 

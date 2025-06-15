@@ -7,8 +7,8 @@ public static class DbSeeding
 {
     public static void SeedData(BookingContext context)
     {
-        context.Workspace.RemoveRange(context.Workspace);
         context.Coworking.RemoveRange(context.Coworking);
+        context.Workspace.RemoveRange(context.Workspace);
         context.SaveChanges();
 
         var workspacesToSeed = new List<WorkspaceModel>

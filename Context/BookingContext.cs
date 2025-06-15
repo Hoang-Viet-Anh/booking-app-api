@@ -10,11 +10,33 @@ public class BookingContext(DbContextOptions<BookingContext> options) : DbContex
 
     public DbSet<CoworkingModel> Coworking { get; set; }
 
+    public DbSet<BookingTimeSlotModel> BookingTimeSlot { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<WorkspaceModel>();
+        modelBuilder.Entity<BookingModel>(entity =>
+        {
+            entity
+                .HasOne(b => b.Coworking)
+                .WithMany()
+                .HasForeignKey(b => b.CoworkingId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Cascade);
 
-        modelBuilder.Entity<BookingModel>(entity => entity.OwnsOne(b => b.DateSlot));
+            entity
+                .HasOne(b => b.Workspace)
+                .WithMany()
+                .HasForeignKey(b => b.WorkspaceId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity
+                .HasMany(b => b.TimeSlots)
+                .WithOne(ts => ts.Booking)
+                .HasForeignKey(ts => ts.BookingId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<CoworkingModel>(entity =>
             entity.OwnsMany(c => c.WorkspacesCapacity,

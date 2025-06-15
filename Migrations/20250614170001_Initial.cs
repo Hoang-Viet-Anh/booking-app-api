@@ -75,11 +75,9 @@ namespace booking_api.Migrations
                     Email = table.Column<string>(type: "text", nullable: false),
                     CoworkingId = table.Column<Guid>(type: "uuid", nullable: false),
                     WorkspaceId = table.Column<Guid>(type: "uuid", nullable: false),
-                    DateSlot_StartDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    DateSlot_EndDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    DateSlot_IsStartTimeSelected = table.Column<bool>(type: "boolean", nullable: false),
-                    DateSlot_IsEndTimeSelected = table.Column<bool>(type: "boolean", nullable: false),
-                    RoomSizes = table.Column<List<int>>(type: "integer[]", nullable: false)
+                    StartDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    EndDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    AreaCapacity = table.Column<List<int>>(type: "integer[]", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -120,6 +118,26 @@ namespace booking_api.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "BookingTimeSlot",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    BookingId = table.Column<Guid>(type: "uuid", nullable: false),
+                    StartTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    EndTime = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BookingTimeSlot", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_BookingTimeSlot_Booking_BookingId",
+                        column: x => x.BookingId,
+                        principalTable: "Booking",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_Booking_CoworkingId",
                 table: "Booking",
@@ -129,6 +147,11 @@ namespace booking_api.Migrations
                 name: "IX_Booking_WorkspaceId",
                 table: "Booking",
                 column: "WorkspaceId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BookingTimeSlot_BookingId",
+                table: "BookingTimeSlot",
+                column: "BookingId");
         }
 
         /// <inheritdoc />
@@ -138,16 +161,19 @@ namespace booking_api.Migrations
                 name: "Availability");
 
             migrationBuilder.DropTable(
-                name: "Booking");
+                name: "BookingTimeSlot");
 
             migrationBuilder.DropTable(
                 name: "WorkspaceCapacity");
 
             migrationBuilder.DropTable(
-                name: "Workspace");
+                name: "Booking");
 
             migrationBuilder.DropTable(
                 name: "Coworking");
+
+            migrationBuilder.DropTable(
+                name: "Workspace");
         }
     }
 }

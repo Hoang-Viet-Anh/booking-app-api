@@ -13,7 +13,7 @@ using booking_api.Context;
 namespace booking_api.Migrations
 {
     [DbContext(typeof(BookingContext))]
-    [Migration("20250612134436_Initial")]
+    [Migration("20250614170001_Initial")]
     partial class Initial
     {
         /// <inheritdoc />
@@ -32,6 +32,10 @@ namespace booking_api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<List<int>>("AreaCapacity")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
+
                     b.Property<Guid>("CoworkingId")
                         .HasColumnType("uuid");
 
@@ -39,13 +43,15 @@ namespace booking_api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<List<int>>("RoomSizes")
-                        .IsRequired()
-                        .HasColumnType("integer[]");
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("WorkspaceId")
                         .HasColumnType("uuid");
@@ -57,6 +63,28 @@ namespace booking_api.Migrations
                     b.HasIndex("WorkspaceId");
 
                     b.ToTable("Booking");
+                });
+
+            modelBuilder.Entity("booking_api.Models.BookingTimeSlotModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BookingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("EndTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("StartTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookingId");
+
+                    b.ToTable("BookingTimeSlot");
                 });
 
             modelBuilder.Entity("booking_api.Models.CoworkingModel", b =>
@@ -138,37 +166,20 @@ namespace booking_api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.OwnsOne("booking_api.Models.DateSlot", "DateSlot", b1 =>
-                        {
-                            b1.Property<Guid>("BookingModelId")
-                                .HasColumnType("uuid");
-
-                            b1.Property<DateTime>("EndDate")
-                                .HasColumnType("timestamp with time zone");
-
-                            b1.Property<bool>("IsEndTimeSelected")
-                                .HasColumnType("boolean");
-
-                            b1.Property<bool>("IsStartTimeSelected")
-                                .HasColumnType("boolean");
-
-                            b1.Property<DateTime>("StartDate")
-                                .HasColumnType("timestamp with time zone");
-
-                            b1.HasKey("BookingModelId");
-
-                            b1.ToTable("Booking");
-
-                            b1.WithOwner()
-                                .HasForeignKey("BookingModelId");
-                        });
-
                     b.Navigation("Coworking");
 
-                    b.Navigation("DateSlot")
+                    b.Navigation("Workspace");
+                });
+
+            modelBuilder.Entity("booking_api.Models.BookingTimeSlotModel", b =>
+                {
+                    b.HasOne("booking_api.Models.BookingModel", "Booking")
+                        .WithMany("TimeSlots")
+                        .HasForeignKey("BookingId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Workspace");
+                    b.Navigation("Booking");
                 });
 
             modelBuilder.Entity("booking_api.Models.CoworkingModel", b =>
@@ -226,6 +237,11 @@ namespace booking_api.Migrations
                         });
 
                     b.Navigation("WorkspacesCapacity");
+                });
+
+            modelBuilder.Entity("booking_api.Models.BookingModel", b =>
+                {
+                    b.Navigation("TimeSlots");
                 });
 #pragma warning restore 612, 618
         }
