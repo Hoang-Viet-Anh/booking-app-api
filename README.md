@@ -16,6 +16,9 @@ The application is configured using the `appsettings.json` file.
   "ConnectionStrings": {
     "BookingContext": "<your-postgresql-connection-string>"
   },
+  "Groq":{
+     "ApiKey": "<your-api-key>"
+  },
   "CorsOrigin": "https://your-frontend-domain.com"
 }
 ```
@@ -24,8 +27,9 @@ The application is configured using the `appsettings.json` file.
 
 | Key              | Description                                                                 |
 |------------------|-----------------------------------------------------------------------------|
-| `BookingContext` | PostgreSQL connection string used by EF Core to connect to the database.   |
+| `BookingContext` | PostgreSQL connection string used by EF Core to connect to the database.    |
 | `CorsOrigin`     | The origin URL of the frontend allowed to access this API (CORS policy).    |
+| `Groq`           | Groq api key used for generating responses.                                 |
 
 ---
 
